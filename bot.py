@@ -90,9 +90,10 @@ def scrape_catalog():
 
         for curso_tag in soup.find_all("div", class_="ramo"):
             cursos_cnt += 1
-            curso_str = full_strip(curso_tag.find("h2").contents[0]).split(" ", 1)
-            curso_id = curso_str[0]
-            curso_nombre = curso_str[1]
+            curso_id = full_strip(curso_tag.find("h2").contents[0])
+            curso_nombre = full_strip(curso_tag.find("h1").contents[0])
+            logger.info(curso_id)
+            logger.info(curso_nombre)
             curso_secciones = {}
             for seccion_tag in curso_tag.find("tbody").find_all("tr"):
                 secciones_cnt += 1
