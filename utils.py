@@ -20,10 +20,11 @@ def parse_horario(horarios_str):
     result = {"catedra": [],
               "auxiliar": [],
               "control": [[], []]}
-    for el in horarios_str:
-        if not isinstance(el, str):
-            continue
-        el = full_strip(el)
+    horarios_str = full_strip(horarios_str)
+    for i in ["Cátedra","Auxiliar","Laboratorio","Control"]:
+        horarios_str = horarios_str.replace(i,";"+i)
+    horarios_list = horarios_str.split(";")
+    for el in horarios_list:
         if el.startswith("Cátedra"):
             result["catedra"] = el.lstrip("Cátedra: ").split(", ")
         elif el.startswith("Auxiliar"):
@@ -113,3 +114,4 @@ def notify_thread(context, chat_id, deptos_messages, cursos_messages):
 def save_config():
     with open(os.path.relpath('config/bot.json'), "w") as bot_config_file:
         json.dump(data.config, bot_config_file, indent=4)
+
