@@ -53,7 +53,7 @@ from utils import full_strip, save_config, try_msg, horarios_to_string, parse_ho
 
 
 async def fetch(session, url):
-    async with session.get(url, ssl=ssl.SSLContext()) as response:
+    async with session.get(url, ssl=ssl.SSLContext(), allow_redirects=False) as response:
         return await response.text()
 
 
