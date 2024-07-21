@@ -7,6 +7,7 @@ from os import path
 
 import aiohttp
 import requests
+import certifi
 from bs4 import BeautifulSoup
 from telegram.error import Unauthorized, BadRequest
 from telegram.ext import CommandHandler, Filters
@@ -53,7 +54,7 @@ from utils import full_strip, save_config, try_msg, horarios_to_string, parse_ho
 
 
 async def fetch(session, url):
-    async with session.get(url, ssl=ssl.SSLContext(), allow_redirects=False) as response:
+    async with session.get(url, ssl=ssl.create_default_context(cafile=certifi.where()), allow_redirects=False) as response:
         return await response.text()
 
 
