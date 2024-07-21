@@ -25,5 +25,30 @@ DEPTS = {  # id: [Cód, Nombre]
     "22": ["ME", "Departamento de Ingeniería Mecánica"],
     "23": ["MI", "Departamento de Ingeniería de Minas"],
     "24": ["MT", "Doctorado en Ciencia de los Materiales"],
-    "307": ["QB", "Departamento de Ingeniería Química y Biotecnología"]
+    "307": ["QB", "Departamento de Ingeniería Química y Biotecnología"],
+}
+
+CODIGO_DEPTS = {
+	"AA": ["12060003"],
+	"AS": ["3"],
+	"CC": ["5"],
+	"CI": ["6"],
+	"CM": ["306"],
+	"DR": ["7"],
+	"ED": ["305"],
+	"EH": ["8"],
+	"EI": ["12060002","9"],
+	"EL": ["10"],
+	"EP": ["303"],
+	"ES": ["12"],
+	"FG": ["310"],
+	"FI": ["13"],
+	"GF": ["15"],
+	"GL": ["16"],
+	"IN": ["19"],
+	"MA": ["21"],
+	"ME": ["22"],
+	"MI": ["23"],
+	"MT": ["24"],
+	"QB": ["307"],
 }

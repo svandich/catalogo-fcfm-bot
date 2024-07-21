@@ -10,13 +10,13 @@ import requests
 import certifi
 from bs4 import BeautifulSoup
 from telegram.error import Unauthorized, BadRequest
-from telegram.ext import CommandHandler, Filters
+from telegram.ext import CommandHandler, Filters, CallbackQueryHandler
 
 import data
 from commands import start, stop, subscribe_depto, subscribe_curso, unsubscribe_depto, unsubscribe_curso, deptos, \
     subscriptions, force_check, get_log, get_chats_data, force_notification, notification, force_check_results, \
     enable_check_results, enable_check_changes, admin_help, changes_check_interval, \
-    results_check_interval
+    results_check_interval, multicode_subscription, multicode_unsubscription
 from config.auth import admin_ids
 from config.logger import logger
 from constants import DEPTS, YEAR, SEMESTER
@@ -456,6 +456,9 @@ def main():
     dp.add_handler(CommandHandler('desuscribir_curso', unsubscribe_curso))
     dp.add_handler(CommandHandler('deptos', deptos))
     dp.add_handler(CommandHandler('suscripciones', subscriptions))
+    dp.add_handler(CallbackQueryHandler(multicode_subscription, pattern='sub:.*'))
+    dp.add_handler(CallbackQueryHandler(multicode_unsubscription, pattern='unsub:.*'))
+
     # Admin commands
     dp.add_handler(CommandHandler('force_check', force_check, filters=Filters.user(admin_ids)))
     dp.add_handler(CommandHandler('get_log', get_log, filters=Filters.user(admin_ids)))
