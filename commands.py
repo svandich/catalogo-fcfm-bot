@@ -3,11 +3,12 @@ import os
 import pickle
 import tempfile
 from datetime import timedelta, datetime
+from re import match
 
 import data
 from config.auth import admin_ids
 from config.logger import logger
-from constants import DEPTS, CODIGO_DEPTS
+from constants import DEPTS, CODIGO_DEPTS, CODIGO_CURSO
 from data import jq, dp
 from utils import save_config, try_msg
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -40,7 +41,7 @@ def stop(update, context):
                  "Puedes volver a activar los avisos enviándome /start nuevamente."
             )
 
-def multicode_subscription(update, context):
+def multicode_depto_subscription(update, context):
     if "subscribed_deptos" not in context.chat_data:
         context.chat_data["subscribed_deptos"] = []
     subscribed_deptos = context.chat_data.get("subscribed_deptos", [])
@@ -71,7 +72,7 @@ def subscribe_depto(update, context):
                 if len(CODIGO_DEPTS[codigo])==1:
                     dpto_id = CODIGO_DEPTS[codigo][0]
                 else:
-                    keyboard = [[InlineKeyboardButton(DEPTS[x][1], callback_data="sub:"+x)] for x in CODIGO_DEPTS[codigo]]
+                    keyboard = [[InlineKeyboardButton(DEPTS[x][1], callback_data="subdepto:"+x)] for x in CODIGO_DEPTS[codigo]]
                     reply_markup = InlineKeyboardMarkup(keyboard)
                     update.message.reply_text("Hay "+str(len(CODIGO_DEPTS[codigo]))+" deptos con el código "+codigo, reply_markup=reply_markup)
                     continue
@@ -94,8 +95,7 @@ def subscribe_depto(update, context):
                 .format("\n".join(["- " + DEPTS[x][1] + " ({})".format(DEPTS[x][0]) for x in already]))
         if failed:
             response += "\U0001F914 No pude identificar ningún departamento asociado a:\n<i>{}</i>\n\n"\
-                .format("\n".join(["- " + str(x) for x in failed]))
-            response += "Puedo recordarte la lista de /deptos que reconozco.\n"
+                .format("\n".join(["- " + x for x in failed]))
 
         if response:
             try_msg(context.bot,
@@ -117,6 +117,33 @@ def subscribe_depto(update, context):
                      "Para ver la lista de códigos de deptos que reconozco envía /deptos")
 
 
+def multicode_curso_subscription(update, context):
+    if "subscribed_cursos" not in context.chat_data:
+        context.chat_data["subscribed_cursos"] = []
+
+    query = update.callback_query
+    query.answer()
+    curso_id = query.data.split(":")[1]
+    (d_arg, c_arg) = curso_id.split("-")
+
+    if (d_arg, c_arg) not in context.chat_data["subscribed_cursos"]:
+        context.chat_data["subscribed_cursos"].append((d_arg, c_arg))
+        data.persistence.flush()
+        is_curso_known = c_arg in data.current_data[d_arg]
+        if is_curso_known:
+            response = "\U0001F4A1 Te avisaré sobre cambios en:\n<i>" \
+                    "- " + c_arg + " de " + DEPTS[d_arg][1] + " (" + DEPTS[d_arg][0] + ")</i>"
+        else:
+            response = "\U0001F4A1 Actualmente no tengo registros de:\n<i>" \
+                    "- " + c_arg + " de " + DEPTS[d_arg][1] + " (" + DEPTS[d_arg][0] + ")</i>\n" \
+                    "Te avisaré si aparece algún curso con ese código en ese depto."
+    else:
+        response = "\U0001F44D Ya estabas suscrito a:\n<i>" \
+                "- " + c_arg + " de " + DEPTS[d_arg][1] + " (" + DEPTS[d_arg][0] + ")</i>."
+
+    query.edit_message_text(text=response, parse_mode="HTML")
+
+
 def subscribe_curso(update, context):
     logger.info("[Command /suscribir_curso]")
     if context.args:
@@ -126,53 +153,62 @@ def subscribe_curso(update, context):
         failed = []
         failed_depto = []
         for arg in context.args:
-            try:
-                (d_arg, c_arg) = arg.split("-")
-                c_arg = c_arg.upper()
-            except ValueError:
+            regex = match(r'^([a-zA-Z]+)(.*)', arg)
+            if regex and "-" not in regex.group(2):
+                d_code = regex.group(1).upper()
+                c_arg = regex.group(2).upper()
+            else:
                 failed.append(arg)
                 continue
 
-            if d_arg in DEPTS:
+            if d_code in CODIGO_CURSO:
+                if len(CODIGO_CURSO[d_code]) == 1:
+                    d_arg = CODIGO_CURSO[d_code][0]
+                else:
+                    keyboard = [[InlineKeyboardButton(DEPTS[x][1], callback_data="subcurso:"+x+"-"+d_code+c_arg)] for x in CODIGO_CURSO[d_code]]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
+                    update.message.reply_text("Hay "+str(len(CODIGO_CURSO[d_code]))+" deptos con el código " + d_code, reply_markup=reply_markup)
+                    continue
                 if "subscribed_cursos" not in context.chat_data:
                     context.chat_data["subscribed_cursos"] = []
-                if (d_arg, c_arg) not in context.chat_data["subscribed_cursos"]:
-                    context.chat_data["subscribed_cursos"].append((d_arg, c_arg))
+                if (d_arg, d_code+c_arg) not in context.chat_data["subscribed_cursos"]:
+                    context.chat_data["subscribed_cursos"].append((d_arg, d_code+c_arg))
                     data.persistence.flush()
-                    is_curso_known = c_arg in data.current_data[d_arg]
+                    is_curso_known = d_code+c_arg in data.current_data[d_arg]
                     if is_curso_known:
-                        added.append((d_arg, c_arg))
+                        added.append((d_arg, d_code+c_arg))
                     else:
-                        unknown.append((d_arg, c_arg))
+                        unknown.append((d_arg, d_code+c_arg))
                 else:
-                    already.append((d_arg, c_arg))
+                    already.append((d_arg, d_code+c_arg))
             else:
-                failed_depto.append((d_arg, c_arg))
+                failed_depto.append(d_code)
         response = ""
         if added:
             response += "\U0001F4A1 Te avisaré sobre cambios en:\n<i>{}</i>\n\n" \
-                .format("\n".join(["- " + (x[1] + " de " + DEPTS[x[0]][1] + " ({})".format(x[0])) for x in added]))
+                .format("\n".join(["- " + x[1] + " de " + DEPTS[x[0]][1] + " (" + DEPTS[x[0]][0] + ")" for x in added]))
         if unknown:
             response += "\U0001F4A1 Actualmente no tengo registros de:\n<i>{}</i>\n" \
-                .format("\n".join(["- " + (x[1] + " en " + DEPTS[x[0]][1] + " ({})".format(x[0])) for x in unknown]))
+                .format("\n".join(["- " + x[1] + " de " + DEPTS[x[0]][1] + " (" + DEPTS[x[0]][0] + ")" for x in unknown]))
             response += "Te avisaré si aparece algún curso con ese código en ese depto.\n\n"
         if already:
             response += "\U0001F44D Ya estabas suscrito a:\n<i>{}</i>.\n\n" \
-                .format("\n".join(["- " + (x[1] + " de " + DEPTS[x[0]][1] + " ({})".format(x[0])) for x in already]))
+                .format("\n".join(["- " + x[1] + " de " + DEPTS[x[0]][1] + " (" + DEPTS[x[0]][0] + ")" for x in already]))
         if failed_depto:
             response += "\U0001F914 No pude identificar ningún departamento asociado a:\n<i>{}</i>\n\n" \
-                .format("\n".join(["- " + x[0] for x in failed_depto]))
+                .format("\n".join(["- " + x for x in failed_depto]))
             response += "Puedo recordarte la lista de /deptos que reconozco.\n"
         if failed:
-            response += "\U0001F914 No pude identificar el par <i>'depto-curso'</i> en:\n<i>{}</i>\n\n"\
+            response += "\U0001F914 No pude identificar el código de curso en:\n<i>{}</i>\n\n"\
                 .format("\n".join(["- " + str(x) for x in failed]))
             response += "Guíate por el formato del ejemplo:\n" \
-                        "<i>Ej. /suscribir_curso 5-CC3001 21-MA1002</i>\n"
+                        "<i>Ej. /suscribir_curso CC3001 MA1002</i>\n"
 
-        try_msg(context.bot,
-                chat_id=update.message.chat_id,
-                parse_mode="HTML",
-                text=response)
+        if response:
+            try_msg(context.bot,
+                    chat_id=update.message.chat_id,
+                    parse_mode="HTML",
+                    text=response)
 
         if (added or unknown) and not context.chat_data.get("enable", False):
             try_msg(context.bot,
@@ -184,11 +220,10 @@ def subscribe_curso(update, context):
         try_msg(context.bot,
                 chat_id=update.message.chat_id,
                 parse_mode="HTML",
-                text="Debes decirme qué cursos deseas monitorear en la forma <i>'depto-curso'</i> para registrarlo.\n"
-                     "<i>Ej. /suscribir_curso 5-CC3001 21-MA1002</i>\n\n"
-                     "Para ver la lista de códigos de deptos que reconozco envía /deptos")
+                text="Debes decirme qué cursos deseas monitorear entregándome el código del curso para registrarlo.\n"
+                     "<i>Ej. /suscribir_curso CC3001 MA1002</i>")
 
-def multicode_unsubscription(update, context):
+def multicode_depto_unsubscription(update, context):
     query = update.callback_query
 
     query.answer()
@@ -217,7 +252,7 @@ def unsubscribe_depto(update, context):
                     elif len(intersection) == 1:
                         dpto_id = intersection[0]
                     else:
-                        keyboard = [[InlineKeyboardButton(DEPTS[x][1], callback_data="unsub:"+x)] \
+                        keyboard = [[InlineKeyboardButton(DEPTS[x][1], callback_data="unsubdepto:"+x)] \
                                 for x in intersection]
                         reply_markup = InlineKeyboardMarkup(keyboard)
                         update.message.reply_text("Hay "+str(len(intersection))+" deptos suscritos con el código " \
@@ -260,6 +295,22 @@ def unsubscribe_depto(update, context):
                      "Para ver las suscripciones de este chat envía /suscripciones\n"
                      "Para ver la lista de códigos de deptos que reconozco envía /deptos\n")
 
+def multicode_curso_unsubscription(update, context):
+    query = update.callback_query
+
+    query.answer()
+    (d_arg, c_arg) = query.data.split(":")[1].split("-")
+    if "subscribed_cursos" not in context.chat_data:
+        context.chat_data["subscribed_cursos"] = []
+    if (d_arg, c_arg) in context.chat_data["subscribed_cursos"]:
+        context.chat_data["subscribed_cursos"].remove((d_arg, c_arg))
+        data.persistence.flush()
+        response = "\U0001F6D1 Dejaré de avisarte sobre cambios en:\n" \
+                "<i>- " + c_arg + " de " + DEPTS[d_arg][1] + " (" + DEPTS[d_arg][0] + ")</i>"
+    else:
+        response = "\U0001F44D No estás suscrito a\n" \
+                "<i>- " + c_arg + " de " + DEPTS[d_arg][1] + " (" + DEPTS[d_arg][0] + ")</i>"
+    query.edit_message_text(text=response, parse_mode="HTML")
 
 def unsubscribe_curso(update, context):
     logger.info("[Command /desuscribir_curso]")
@@ -269,39 +320,47 @@ def unsubscribe_curso(update, context):
         failed = []
         failed_depto = []
         for arg in context.args:
-            try:
-                (d_arg, c_arg) = arg.split("-")
-            except ValueError:
+            regex = match(r'^([a-zA-Z]+)(.*)', arg)
+            if regex and "-" not in regex.group(2):
+                d_code = regex.group(1).upper()
+                c_arg = regex.group(2).upper()
+            else:
                 failed.append(arg)
                 continue
 
-            if d_arg in DEPTS:
+            if d_code in CODIGO_CURSO:
+                if len(CODIGO_CURSO[d_code]) == 1:
+                    d_arg = CODIGO_CURSO[d_code][0]
+                else:
+                    keyboard = [[InlineKeyboardButton(DEPTS[x][1], callback_data="unsubcurso:"+x+"-"+d_code+c_arg)] for x in CODIGO_CURSO[d_code]]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
+                    update.message.reply_text("Hay "+str(len(CODIGO_CURSO[d_code]))+" deptos con el código " + d_code, reply_markup=reply_markup)
+                    continue
                 if "subscribed_cursos" not in context.chat_data:
                     context.chat_data["subscribed_cursos"] = []
-                if (d_arg, c_arg) in context.chat_data["subscribed_cursos"]:
-                    context.chat_data["subscribed_cursos"].remove((d_arg, c_arg))
+                if (d_arg, d_code+c_arg) in context.chat_data["subscribed_cursos"]:
+                    context.chat_data["subscribed_cursos"].remove((d_arg, d_code+c_arg))
                     data.persistence.flush()
-                    deleted.append((d_arg, c_arg))
+                    deleted.append((d_arg, d_code+c_arg))
                 else:
-                    notsub.append((d_arg, c_arg))
+                    notsub.append((d_arg, d_code+c_arg))
             else:
-                failed_depto.append((d_arg, c_arg))
+                failed_depto.append(arg)
         response = ""
         if deleted:
             response += "\U0001F6D1 Dejaré de avisarte sobre cambios en:\n<i>{}</i>\n\n" \
-                .format("\n".join([("- " + x[1] + " de " + DEPTS[x[0]][1] + " ({})".format(x[0])) for x in deleted]))
+                .format("\n".join(["- " + x[1] + " de " + DEPTS[x[0]][1] + " (" + DEPTS[x[0]][0] + ")" for x in deleted]))
         if notsub:
             response += "\U0001F44D No estás suscrito a\n<i>{}</i>\n\n" \
-                .format("\n".join([("- " + x[1] + " de " + DEPTS[x[0]][1] + " ({})".format(x[0])) for x in notsub]))
+                .format("\n".join(["- " + x[1] + " de " + DEPTS[x[0]][1] + " (" + DEPTS[x[0]][0] + ")" for x in notsub]))
         if failed_depto:
             response += "\U0001F914 No pude identificar ningún departamento asociado a:\n<i>{}</i>\n\n" \
-                .format("\n".join(["- " + x[0] for x in failed_depto]))
-            response += "Puedo recordarte la lista de /deptos que reconozco.\n"
+                .format("\n".join(["- " + x for x in failed_depto]))
         if failed:
-            response += "\U0001F914 No pude identificar el par <i>'depto-curso'</i> en:\n<i>{}</i>\n\n"\
-                .format("\n".join(["- " + str(x) for x in failed]))
+            response += "\U0001F914 No pude identificar el código de curso en:\n<i>{}</i>\n\n"\
+                .format("\n".join(["- " + x for x in failed]))
             response += "Guíate por el formato del ejemplo:\n" \
-                        "<i>Ej. /desuscribir_curso 5-CC3001 21-MA1002</i>\n"
+                        "<i>Ej. /desuscribir_curso CC3001 MA1002</i>\n"
 
         response += "\nRecuerda que puedes apagar temporalmente todos los avisos usando /stop, " \
                     "sin perder tus suscripciones"
@@ -314,9 +373,8 @@ def unsubscribe_curso(update, context):
                 chat_id=update.message.chat_id,
                 parse_mode="HTML",
                 text="Indícame qué cursos quieres dejar de monitorear.\n"
-                     "<i>Ej. /desuscribir_curso 5-CC3001 21-MA1002</i>\n\n"
-                     "Para ver las suscripciones de este chat envía /suscripciones\n"
-                     "Para ver la lista de códigos de deptos que reconozco envía /deptos\n")
+                     "<i>Ej. /desuscribir_curso CC3001 MA1002</i>\n\n"
+                     "Para ver las suscripciones de este chat envía /suscripciones\n")
 
 
 def deptos(update, context):
@@ -336,9 +394,9 @@ def subscriptions(update, context):
     subscribed_deptos = context.chat_data.get("subscribed_deptos", [])
     subscribed_cursos = context.chat_data.get("subscribed_cursos", [])
 
-    sub_deptos_list = ["- <b>({})</b>    <i>{}</i>".format(DEPTS[x][0], DEPTS[x][1]) for x in subscribed_deptos]
-    sub_cursos_list = ["- <b>({}-{})</b>    <i>{} en {} {}</i>"
-                           .format(x[0], x[1], x[1], DEPTS[x[0]][0], DEPTS[x[0]][1]) for x in subscribed_cursos]
+    sub_deptos_list = ["- <b>({})</b> <i>{}</i>".format(DEPTS[x][0], DEPTS[x][1]) for x in subscribed_deptos]
+    sub_cursos_list = ["- <b>({})</b> en <i>{} - {}</i>"
+                           .format(x[1], DEPTS[x[0]][0], DEPTS[x[0]][1]) for x in subscribed_cursos]
 
     result = "<b>Avisos activados:</b> <i>{}</i>\n\n" \
         .format("Sí \U00002714 (Detener: /stop)" if context.chat_data.get("enable", False)

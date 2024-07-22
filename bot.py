@@ -15,8 +15,9 @@ from telegram.ext import CommandHandler, Filters, CallbackQueryHandler
 import data
 from commands import start, stop, subscribe_depto, subscribe_curso, unsubscribe_depto, unsubscribe_curso, deptos, \
     subscriptions, force_check, get_log, get_chats_data, force_notification, notification, force_check_results, \
-    enable_check_results, enable_check_changes, admin_help, changes_check_interval, \
-    results_check_interval, multicode_subscription, multicode_unsubscription
+    enable_check_results, enable_check_changes, admin_help, changes_check_interval, results_check_interval, \
+    multicode_depto_subscription, multicode_depto_unsubscription, multicode_curso_subscription, \
+    multicode_curso_unsubscription
 from config.auth import admin_ids
 from config.logger import logger
 from constants import DEPTS, YEAR, SEMESTER
@@ -456,8 +457,10 @@ def main():
     dp.add_handler(CommandHandler('desuscribir_curso', unsubscribe_curso))
     dp.add_handler(CommandHandler('deptos', deptos))
     dp.add_handler(CommandHandler('suscripciones', subscriptions))
-    dp.add_handler(CallbackQueryHandler(multicode_subscription, pattern='sub:.*'))
-    dp.add_handler(CallbackQueryHandler(multicode_unsubscription, pattern='unsub:.*'))
+    dp.add_handler(CallbackQueryHandler(multicode_depto_subscription, pattern='subdepto:.*'))
+    dp.add_handler(CallbackQueryHandler(multicode_depto_unsubscription, pattern='unsubdepto:.*'))
+    dp.add_handler(CallbackQueryHandler(multicode_curso_subscription, pattern='subcurso:.*'))
+    dp.add_handler(CallbackQueryHandler(multicode_curso_unsubscription, pattern='unsubcurso:.*'))
 
     # Admin commands
     dp.add_handler(CommandHandler('force_check', force_check, filters=Filters.user(admin_ids)))
