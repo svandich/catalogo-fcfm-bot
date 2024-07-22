@@ -68,7 +68,6 @@ def subscribe_depto(update, context):
         for arg in context.args:
             codigo = arg.upper()
             if codigo in CODIGO_DEPTS:
-                print(CODIGO_DEPTS[codigo])
                 if len(CODIGO_DEPTS[codigo])==1:
                     dpto_id = CODIGO_DEPTS[codigo][0]
                 else:
