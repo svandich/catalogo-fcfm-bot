@@ -384,7 +384,6 @@ def deptos(update, context):
             chat_id=update.message.chat_id,
             parse_mode="HTML",
             text="Estos son los códigos que representan a cada departamento o área. "
-                 "Utilizaré los mismos códigos que usa U-Campus para facilitar la consistencia\n"
                  "\n{}".format("\n".join(deptos_list)))
 
 
