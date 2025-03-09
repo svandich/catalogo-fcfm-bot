@@ -16,5 +16,7 @@ dp = updater.dispatcher
 jq = updater.job_queue
 job_check_results = None
 job_check_changes = None
+job_msg_sender = None
 
 config = {}
+msg_queue = []

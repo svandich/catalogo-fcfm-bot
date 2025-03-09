@@ -270,9 +270,8 @@ def notify_changes(all_changes, context):
                                                    "\U0001F50D Ver catálogo</a>"
                                                    .format(change_type_str, curso_changes_str, YEAR, SEMESTER, d_id))
 
-                    t = threading.Thread(target=notify_thread,
-                                         args=(context, chat_id, deptos_messages, cursos_messages))
-                    t.start()
+                    data.msg_queue.append(threading.Thread(target=notify_thread,
+                                         args=(context, chat_id, deptos_messages, cursos_messages)))
             except (Unauthorized, BadRequest):
                 continue
             except Exception as e:
@@ -415,6 +414,11 @@ def check_results(context):
                         disable_web_page_preview=True,
                         )
 
+def msg_sender(context):
+    if data.msg_queue:
+        for _ in range(min(5,len(data.msg_queue))):
+            data.msg_queue.pop(0).start()
+
 
 def main():
     try:
@@ -448,6 +452,9 @@ def main():
     data.job_check_results = jq.run_repeating(check_results, interval=data.config["results_check_interval"],
                                               name="job_results")
     data.job_check_results.enabled = data.config["is_checking_results"]
+    data.job_msg_sender = jq.run_repeating(msg_sender, interval=data.config["msg_sender_interval"],
+                                              name="msg_sender")
+    data.job_msg_sender.enabled = data.config["is_sending_messages"]
 
     dp.add_handler(CommandHandler('start', start))
     dp.add_handler(CommandHandler('stop', stop))

@@ -1,7 +1,9 @@
 {
     "changes_check_interval": 60,
     "results_check_interval": 60,
+    "msg_sender_interval": 5,
     "is_checking_changes": true,
     "is_checking_results": true,
     "last_novedad_id": "44934"
+    "is_sending_messages": true,
 }
