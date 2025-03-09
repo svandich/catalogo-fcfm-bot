@@ -426,8 +426,13 @@ def subscriptions(update, context):
 def force_check(update, context):
     if int(update.message.from_user.id) in admin_ids:
         logger.info("[Command /force_check from admin %s]", update.message.from_user.id)
-        job_check = jq.get_jobs_by_name("job_check")[0]
-        job_check.run(dp)
+        job_check = jq.get_jobs_by_name("job_check")
+        if job_check:
+            job_check[0].run(dp)
+        else:
+            logger.warning("[/force_check from admin %s ignored, check was running]", update.message.from_user.id)
+
+
 
 
 def force_check_results(update, context):
